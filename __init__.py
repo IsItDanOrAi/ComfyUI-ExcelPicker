@@ -4,4 +4,8 @@ NODE_CLASS_MAPPINGS = {
     "ComfyUI-ExcelPicker": ExcelPicker,
 }
 
-print("Done")
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "ComfyUI-ExcelPicker": "Excel Picker Node",
+}
+
+print("ExcelPicker Node Loaded Successfully")
