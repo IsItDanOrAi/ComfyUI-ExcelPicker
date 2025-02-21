@@ -21,7 +21,7 @@ class ExcelPicker:
     RETURN_TYPES = tuple("STRING" for _ in range(20)) + ("INT",)
     RETURN_NAMES = tuple(f"output_{i+1}" for i in range(20)) + ("seed",)
     FUNCTION = "pick_prompt"
-    CATEGORY = "prompt"
+    CATEGORY = "DanOrAI-Excel"
 
     def pick_prompt(self, excel_path, sheet_name, row_number, num_outputs, prefix, seed_mode, seed):
         current_dir = os.path.dirname(os.path.abspath(__file__))
