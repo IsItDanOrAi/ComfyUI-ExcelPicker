@@ -2,26 +2,27 @@ import random
 import openpyxl
 import os
 
-class PonyCharacterPromptPicker:
+class ExcelPicker:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "excel_path": ("STRING", {"default": os.path.join("pony_char_list.xlsx")}),
+                "excel_path": ("STRING", {"default": os.path.join("pony_char_list.xlsx")} ),
                 "sheet_name": ("STRING", {"default": "Female character list"}),
-                "column_letter": ("STRING", {"default": "A"}),
+                "row_number": ("INT", {"default": 3, "min": 1, "max": 10000}),
+                "num_outputs": ("INT", {"default": 5, "min": 1, "max": 20}),
                 "prefix": ("STRING", {"default": "score_9, score_8_up, score_7_up"}),
                 "seed_mode": (["randomize", "fixed"],),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
             },
         }
 
-    RETURN_TYPES = ("STRING", "INT")
-    RETURN_NAMES = ("prompt", "seed")
+    RETURN_TYPES = tuple("STRING" for _ in range(20)) + ("INT",)
+    RETURN_NAMES = tuple(f"output_{i+1}" for i in range(20)) + ("seed",)
     FUNCTION = "pick_prompt"
     CATEGORY = "prompt"
 
-    def pick_prompt(self, excel_path, sheet_name, column_letter, prefix, seed_mode, seed):
+    def pick_prompt(self, excel_path, sheet_name, row_number, num_outputs, prefix, seed_mode, seed):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         full_excel_path = os.path.join(current_dir, excel_path)
         
@@ -34,37 +35,28 @@ class PonyCharacterPromptPicker:
             raise ValueError(f"Sheet '{sheet_name}' not found in the Excel file")
 
         sheet = workbook[sheet_name]
+        
+        if row_number > sheet.max_row:
+            raise ValueError(f"Row {row_number} exceeds the number of rows in the sheet")
 
-        # Get the column index from the letter
-        column_index = openpyxl.utils.column_index_from_string(column_letter)
-
-        # Collect valid cell values
-        valid_cells = []
-        for row in sheet.iter_rows(min_row=3, min_col=column_index, max_col=column_index):
-            cell = row[0]  # There's only one cell per row since we specified min_col=max_col
-            if cell.value is not None:
-                valid_cells.append(cell.value)
-
+        row_values = [cell.value for cell in sheet[row_number] if cell.value is not None]
         workbook.close()
 
-        if not valid_cells:
-            raise ValueError(f"No valid values found in column {column_letter} starting from row 3")
-
+        if not row_values:
+            raise ValueError(f"No valid values found in row {row_number}")
+        
         # Set the seed for random selection
         if seed_mode == "randomize":
             seed = random.randint(0, 0xffffffffffffffff)
         random.seed(seed)
 
-        selected_prompt = random.choice(valid_cells)
-
+        # Limit number of outputs based on available values and requested count
+        selected_values = row_values[:num_outputs] + ["" for _ in range(max(0, num_outputs - len(row_values)))]
+        
         # Process the prefix
         prefix_list = [p.strip() for p in prefix.split(',')]
         
-        # Add comma and space to the selected prompt if needed
-        if not selected_prompt.endswith(", "):
-            selected_prompt += ", "
+        # Format each output
+        formatted_outputs = [", ".join(prefix_list) + ", " + value if value else "" for value in selected_values]
 
-        # Combine prefix and selected prompt
-        full_prompt = ", ".join(prefix_list) + ", " + selected_prompt
-
-        return (full_prompt, seed)
+        return tuple(formatted_outputs) + (seed,)
