@@ -7,7 +7,7 @@ class ExcelPicker:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "excel_path": ("STRING", {"default": os.path.join("pony_char_list.xlsx")} ),
+                "excel_path": ("STRING", {"default": os.path.join("pony_char_list.xlsx")}),
                 "sheet_name": ("STRING", {"default": "Female character list"}),
                 "row_number": ("INT", {"default": 3, "min": 1, "max": 10000}),
                 "num_outputs": ("INT", {"default": 5, "min": 1, "max": 20}),
@@ -17,6 +17,7 @@ class ExcelPicker:
             },
         }
 
+    # Always return 20 string outputs and one integer seed
     RETURN_TYPES = tuple("STRING" for _ in range(20)) + ("INT",)
     RETURN_NAMES = tuple(f"output_{i+1}" for i in range(20)) + ("seed",)
     FUNCTION = "pick_prompt"
@@ -39,24 +40,29 @@ class ExcelPicker:
         if row_number > sheet.max_row:
             raise ValueError(f"Row {row_number} exceeds the number of rows in the sheet")
 
-        row_values = [cell.value for cell in sheet[row_number] if cell.value is not None]
+        # Convert cell values to strings and filter out empty ones
+        row_values = [str(cell.value) for cell in sheet[row_number] if cell.value is not None]
         workbook.close()
 
         if not row_values:
             raise ValueError(f"No valid values found in row {row_number}")
         
-        # Set the seed for random selection
+        # Set the seed for random selection if needed
         if seed_mode == "randomize":
             seed = random.randint(0, 0xffffffffffffffff)
         random.seed(seed)
 
-        # Limit number of outputs based on available values and requested count
+        # Select up to num_outputs values, pad with empty strings if not enough values
         selected_values = row_values[:num_outputs] + ["" for _ in range(max(0, num_outputs - len(row_values)))]
+        # Ensure the list is exactly 20 items long
+        if len(selected_values) < 20:
+            selected_values += [""] * (20 - len(selected_values))
         
-        # Process the prefix
+        # Process the prefix and format each output
         prefix_list = [p.strip() for p in prefix.split(',')]
-        
-        # Format each output
-        formatted_outputs = [", ".join(prefix_list) + ", " + value if value else "" for value in selected_values]
+        formatted_outputs = [
+            ", ".join(prefix_list) + (", " + value if value else "")
+            for value in selected_values
+        ]
 
         return tuple(formatted_outputs) + (seed,)
