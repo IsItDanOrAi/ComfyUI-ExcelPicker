@@ -1,7 +1,7 @@
-from .nodes import PonyCharacterPromptPicker
+from .nodes import ExcelPicker
 
 NODE_CLASS_MAPPINGS = {
-    "Pony Character Prompt Picker": PonyCharacterPromptPicker,
+    "ComfyUI-ExcelPicker": ExcelPicker,
 }
 
-print("\033[34mPony Character Prompt Picker: \033[92mLoaded\033[0m")
+print("Done")
