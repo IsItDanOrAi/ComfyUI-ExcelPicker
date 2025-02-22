@@ -1,4 +1,3 @@
-import random
 import openpyxl
 import os
 
@@ -7,62 +6,56 @@ class ExcelPicker:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "excel_path": ("STRING", {"default": os.path.join("pony_char_list.xlsx")}),
-                "sheet_name": ("STRING", {"default": "Female character list"}),
-                "row_number": ("INT", {"default": 3, "min": 1, "max": 10000}),
-                "num_outputs": ("INT", {"default": 5, "min": 1, "max": 20}),
-                "prefix": ("STRING", {"default": "score_9, score_8_up, score_7_up"}),
-                "seed_mode": (["randomize", "fixed"],),
-                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
+                "excel_path": ("STRING", {"default": os.path.join("TESTLIST.xlsx")}),
+                "sheet_name": ("STRING", {"default": "Sheet1"}),
+                "row_number": ("INT", {"default": 1, "min": 1, "max": 10000}),
+                "prefix": ("STRING", {"default": ""}),
             },
         }
 
-    # Always return 20 string outputs and one integer seed
-    RETURN_TYPES = tuple("STRING" for _ in range(20)) + ("INT",)
-    RETURN_NAMES = tuple(f"output_{i+1}" for i in range(20)) + ("seed",)
+    # Only three outputs: Column A, Column B, and Column C
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("Column_A", "Column_B", "Column_C")
     FUNCTION = "pick_prompt"
-    CATEGORY = "DanOrAI-Excel"
+    CATEGORY = "ExcelPicker"
 
-    def pick_prompt(self, excel_path, sheet_name, row_number, num_outputs, prefix, seed_mode, seed):
+    def pick_prompt(self, excel_path, sheet_name, row_number, prefix):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         full_excel_path = os.path.join(current_dir, excel_path)
         
         if not os.path.exists(full_excel_path):
             raise FileNotFoundError(f"Excel file not found: {full_excel_path}")
-
-        workbook = openpyxl.load_workbook(full_excel_path, read_only=True)
+        
+        # Load workbook in default mode (not read_only) so that max_row is computed correctly
+        workbook = openpyxl.load_workbook(full_excel_path)
         
         if sheet_name not in workbook.sheetnames:
+            workbook.close()
             raise ValueError(f"Sheet '{sheet_name}' not found in the Excel file")
-
+        
         sheet = workbook[sheet_name]
+        max_row = sheet.max_row
+        if max_row is None or row_number > max_row:
+            workbook.close()
+            raise ValueError(f"Row {row_number} exceeds the number of rows ({max_row}) in the sheet or the sheet is empty.")
         
-        if row_number > sheet.max_row:
-            raise ValueError(f"Row {row_number} exceeds the number of rows in the sheet")
-
-        # Convert cell values to strings and filter out empty ones
-        row_values = [str(cell.value) for cell in sheet[row_number] if cell.value is not None]
+        # Retrieve the specified row as a list of cells
+        row_cells = list(sheet[row_number])
         workbook.close()
-
-        if not row_values:
-            raise ValueError(f"No valid values found in row {row_number}")
         
-        # Set the seed for random selection if needed
-        if seed_mode == "randomize":
-            seed = random.randint(0, 0xffffffffffffffff)
-        random.seed(seed)
-
-        # Select up to num_outputs values, pad with empty strings if not enough values
-        selected_values = row_values[:num_outputs] + ["" for _ in range(max(0, num_outputs - len(row_values)))]
-        # Ensure the list is exactly 20 items long
-        if len(selected_values) < 20:
-            selected_values += [""] * (20 - len(selected_values))
+        # Retrieve values from the first three cells (Columns A, B, and C)
+        values = []
+        for i in range(3):
+            if i < len(row_cells):
+                cell_value = row_cells[i].value
+                if cell_value is None:
+                    cell_value = ""
+            else:
+                cell_value = ""
+            values.append(str(cell_value))
         
-        # Process the prefix and format each output
-        prefix_list = [p.strip() for p in prefix.split(',')]
-        formatted_outputs = [
-            ", ".join(prefix_list) + (", " + value if value else "")
-            for value in selected_values
-        ]
-
-        return tuple(formatted_outputs) + (seed,)
+        # Prepend prefix if provided
+        if prefix.strip():
+            values = [prefix.strip() + " " + v for v in values]
+        
+        return tuple(values)
